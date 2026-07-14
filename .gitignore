@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+.react-router/
+.wrangler/
+worker-configuration.d.ts
+.dev.vars
+.env
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+coverage/

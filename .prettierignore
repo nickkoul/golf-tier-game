@@ -1,0 +1,11 @@
+node_modules/
+build/
+dist/
+.react-router/
+.wrangler/
+package-lock.json
+.gitignore
+docs/
+migrations/
+prototype/
+worker-configuration.d.ts
