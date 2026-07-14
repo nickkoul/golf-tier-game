@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype: Contest lifecycle</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #142019; background: #e9eee8; }
+    * { box-sizing: border-box; } body { margin: 0; padding: 24px 24px 116px; } button { font: inherit; cursor: pointer; }
+    .shell { max-width: 1180px; margin: auto; } .eyebrow { margin: 0 0 8px; color: #51705c; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; } h1 { font: 700 clamp(28px, 5vw, 52px)/1.02 Georgia, serif; margin-bottom: 12px; } h2 { font: 700 25px/1.1 Georgia, serif; } h3 { margin-bottom: 6px; font-size: 15px; } .muted { color: #647168; }
+    .tag, .status { display: inline-block; border-radius: 999px; padding: 5px 9px; font-size: 12px; font-weight: 750; } .tag { background: #d8e7da; color: #26583b; } .status { background: #f6e7b5; color: #6c5000; }
+    .button { border: 0; border-radius: 8px; background: #174c35; color: white; padding: 11px 14px; font-weight: 750; } .button.secondary { background: white; color: #174c35; border: 1px solid #bfc9c0; }
+    .card { background: #fff; border: 1px solid #d8ded8; border-radius: 14px; padding: 20px; box-shadow: 0 2px 8px #1830200d; } .stack { display: grid; gap: 14px; }
+    .event { display: flex; gap: 12px; align-items: center; } .event time { min-width: 56px; color: #52645a; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+    .avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #d8e7da; color: #174c35; font-size: 12px; font-weight: 800; }
+    .switcher { position: fixed; z-index: 3; bottom: 20px; left: 50%; display: flex; align-items: center; gap: 14px; transform: translateX(-50%); padding: 9px; border: 1px solid #34433a; border-radius: 999px; background: #142019; color: white; box-shadow: 0 8px 28px #0004; } .switcher button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #e8f2e8; color: #142019; font-size: 20px; } .switcher span { min-width: 190px; text-align: center; font-size: 13px; font-weight: 750; }
+    .prototype-note { margin: 0 0 24px; color: #6c5000; font-size: 13px; }
+    /* A: a linear, participant-first runway. */
+    .runway { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .75fr); } .hero { padding: clamp(24px, 5vw, 56px); border-radius: 20px; color: white; background: #174c35; } .hero .muted { color: #d4e1d4; }.timeline { position: relative; padding-left: 29px; } .timeline::before { position: absolute; left: 8px; top: 8px; bottom: 8px; width: 2px; background: #cad4cb; content: ''; }.step { position: relative; padding: 0 0 21px; }.step::before { position: absolute; left: -25px; top: 3px; width: 12px; height: 12px; border: 3px solid white; border-radius: 50%; background: #174c35; box-shadow: 0 0 0 2px #174c35; content: ''; }.step.future::before { background: #fff; box-shadow: 0 0 0 2px #aab6ac; }.tier-row { display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid #e1e6e1; }
+    /* B: an owner control room with operations visible at once. */
+    .control-room { display: grid; grid-template-columns: 220px minmax(0, 1fr); overflow: hidden; border: 1px solid #cbd4cb; border-radius: 16px; background: #fff; }.rail { padding: 22px 14px; background: #183127; color: #dfe8df; }.rail h2 { font-family: inherit; font-size: 17px; }.nav-item { display: block; width: 100%; margin: 5px 0; padding: 10px; border: 0; border-radius: 7px; background: transparent; color: inherit; text-align: left; }.nav-item.active { background: #426453; color: white; }.control-main { padding: 28px; }.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }.metric { padding: 15px; border-radius: 10px; background: #f1f4f0; }.metric strong { display: block; font-size: 27px; }.people { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }.person { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #e0e5e0; border-radius: 8px; }.person small { display: block; color: #627167; }
+    /* C: a scoreboard-like contest card that foregrounds the game. */
+    .match { color: #f5f6ec; background: #10221d; border-radius: 20px; overflow: hidden; }.match-header { padding: 22px; background: linear-gradient(120deg, #1e5f42, #1e3429); }.match-header h1 { margin-bottom: 6px; }.match-grid { display: grid; grid-template-columns: 1fr minmax(300px, .8fr); }.score-panel { padding: 26px; }.standing { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 14px 0; border-top: 1px solid #ffffff1f; }.standing.you { margin: 8px -12px; padding: 14px 12px; border: 0; border-radius: 8px; background: #d7ef86; color: #142019; }.lineup-panel { padding: 26px; background: #f1f1e8; color: #142019; }.golfer { display: flex; justify-content: space-between; padding: 13px 0; border-top: 1px solid #d3d8d0; }.golfer button { border: 0; background: none; color: #1d6545; font-weight: 800; }
+    @media (max-width: 700px) { body { padding: 15px 15px 104px; }.runway, .match-grid { grid-template-columns: 1fr; }.control-room { grid-template-columns: 1fr; }.rail { display: flex; gap: 4px; overflow: auto; padding: 10px; }.rail h2 { display: none; }.nav-item { white-space: nowrap; }.control-main { padding: 18px; }.metrics, .people { grid-template-columns: 1fr; }.switcher span { min-width: 148px; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <p class="prototype-note"><strong>Throwaway prototype.</strong> Three contest-lifecycle structures, switchable with <code>?variant=A</code>, <code>B</code>, or <code>C</code>.</p>
+    <section id="variant-a" data-variant="A">
+      <p class="eyebrow">Variant A · Guided runway</p>
+      <div class="runway">
+        <div class="stack">
+          <header class="hero"><span class="tag">Your contest</span><h1>Genesis Invitational</h1><p class="muted">Lineups lock Thursday, 6:45 AM PST · 2 days away</p><button class="button">Build my lineup</button></header>
+          <article class="card"><h2>One decision per tier</h2><p class="muted">Your lineup is saved only when all five choices are complete. Nobody can see picks before lock.</p><div class="tier-row"><span>Tier 1 · Elite</span><strong>Scottie Scheffler</strong></div><div class="tier-row"><span>Tier 2 · Contenders</span><strong>Choose</strong></div><div class="tier-row"><span>Tier 3 · Value</span><strong>Choose</strong></div><div class="tier-row"><span>Tier 4 · Longshots</span><strong>Choose</strong></div><div class="tier-row"><span>Tier 5 · Wildcard</span><strong>Choose</strong></div></article>
+        </div>
+        <aside class="card"><h2>Contest runway</h2><div class="timeline"><div class="step"><h3>Created</h3><p class="muted">Your Tier Board is ready.</p></div><div class="step"><h3>Invite friends</h3><p class="muted">6 accepted · 2 pending</p><button class="button secondary">Manage invitations</button></div><div class="step"><h3>Enter lineup</h3><p class="muted">3 of 8 players entered</p></div><div class="step future"><h3>Lineup Lock</h3><p class="muted">Picks reveal. Standings begin.</p></div><div class="step future"><h3>Final Standings</h3><p class="muted">Frozen when the tournament completes.</p></div></div></aside>
+      </div>
+    </section>
+    <section id="variant-b" data-variant="B" hidden>
+      <p class="eyebrow">Variant B · Owner control room</p>
+      <div class="control-room"><aside class="rail"><h2>Genesis Invitational</h2><button class="nav-item active">Overview</button><button class="nav-item">Tier Board</button><button class="nav-item">Participants</button><button class="nav-item">Lineup status</button><button class="nav-item">Standings</button></aside><div class="control-main"><span class="status">Pre-lock · 2d 14h</span><h1>Run the room.</h1><p class="muted">Everything the Contest Owner needs to make entry friction visible before play starts.</p><div class="metrics"><div class="metric"><strong>8</strong>Participants</div><div class="metric"><strong>3</strong>Lineups entered</div><div class="metric"><strong>2</strong>Invites pending</div></div><h2 style="margin-top:28px">Participant status</h2><div class="people"><div class="person"><span class="avatar">NK</span><div><strong>Nick Koul</strong><small>Entered · you</small></div></div><div class="person"><span class="avatar">AS</span><div><strong>Ana Singh</strong><small>Entered</small></div></div><div class="person"><span class="avatar">JM</span><div><strong>Jules Martin</strong><small>Not entered</small></div></div><div class="person"><span class="avatar">RS</span><div><strong>Ravi Shah</strong><small>Invitation pending</small></div></div></div><p style="margin-top:24px"><button class="button">Invite participant</button> <button class="button secondary">View Tier Board</button></p></div></div>
+    </section>
+    <section id="variant-c" data-variant="C" hidden>
+      <p class="eyebrow">Variant C · Game-first match card</p>
+      <div class="match"><header class="match-header"><span class="tag">Provisional · Round 2</span><h1>Genesis Invitational</h1><p>Locked Thursday at 6:45 AM PST · refreshes in 42 sec</p></header><div class="match-grid"><section class="score-panel"><h2>Standings</h2><div class="standing"><strong>1</strong><span>Ana Singh</span><strong>312.5</strong></div><div class="standing you"><strong>2</strong><span><strong>Nick Koul</strong><br><small>Your lineup</small></span><strong>298.0</strong></div><div class="standing"><strong>3</strong><span>Jules Martin</span><strong>276.5</strong></div><div class="standing"><strong>4</strong><span>Ravi Shah</span><strong>251.0</strong></div><p class="muted" style="color:#bfd1c2; margin-top:22px">All submitted lineups revealed at lock. Equal totals share a position.</p></section><aside class="lineup-panel"><span class="status">Your lineup</span><h2>298.0 points</h2><div class="golfer"><span>Tier 1 · Scottie Scheffler</span><strong>86.0</strong></div><div class="golfer"><span>Tier 2 · Collin Morikawa</span><strong>63.5</strong></div><div class="golfer"><span>Tier 3 · Sahith Theegala</span><strong>58.0</strong></div><div class="golfer"><span>Tier 4 · Tom Kim</span><strong>49.0</strong></div><div class="golfer"><span>Tier 5 · Cam Davis</span><strong>41.5</strong></div><p><button>View scoring detail</button></p></aside></div></div>
+    </section>
+  </main>
+  <nav class="switcher" aria-label="Prototype variant switcher"><button id="previous" aria-label="Previous variant">←</button><span id="label"></span><button id="next" aria-label="Next variant">→</button></nav>
+  <script>
+    const variants = { A: 'Guided runway', B: 'Owner control room', C: 'Game-first match card' };
+    let current = new URLSearchParams(location.search).get('variant');
+    if (!variants[current]) current = 'A';
+    function render() { Object.keys(variants).forEach(key => document.querySelector(`[data-variant="${key}"]`).hidden = key !== current); document.querySelector('#label').textContent = `${current} · ${variants[current]}`; const url = new URL(location); url.searchParams.set('variant', current); history.replaceState(null, '', url); }
+    function cycle(direction) { const keys = Object.keys(variants); current = keys[(keys.indexOf(current) + direction + keys.length) % keys.length]; render(); }
+    document.querySelector('#previous').onclick = () => cycle(-1); document.querySelector('#next').onclick = () => cycle(1);
+    addEventListener('keydown', event => { if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return; if (event.key === 'ArrowLeft') cycle(-1); if (event.key === 'ArrowRight') cycle(1); });
+    render();
+  </script>
+</body>
+</html>
