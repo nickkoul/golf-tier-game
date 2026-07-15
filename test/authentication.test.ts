@@ -15,7 +15,7 @@ describe('passwordless authentication', () => {
   it('renders sign-in and keeps private data unauthenticated', async () => {
     const signIn = await SELF.fetch('http://example.com/sign-in');
     expect(signIn.status).toBe(200);
-    await expect(signIn.text()).resolves.toContain('Sign in with email');
+    await expect(signIn.text()).resolves.toContain('Make Sunday interesting.');
 
     const requested = await SELF.fetch('http://example.com/api/auth/request', {
       method: 'POST',
