@@ -4,5 +4,6 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   build: { outDir: 'build' },
+  server: { hmr: { overlay: process.env.PLAYWRIGHT !== '1' } },
   plugins: [cloudflare(), reactRouter()],
 });

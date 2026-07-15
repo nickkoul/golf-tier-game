@@ -7,12 +7,16 @@ export default defineConfig({
     reactRouter(),
     cloudflareTest({
       miniflare: {
-        bindings: { VERIFICATION_TOKEN: 'test-verification-token' },
+        bindings: {
+          AUTH_EMAIL_DELIVERY: 'local',
+          VERIFICATION_TOKEN: 'test-verification-token',
+        },
       },
       wrangler: { configPath: './wrangler.jsonc' },
     }),
   ],
   test: {
+    exclude: ['e2e/**', 'node_modules/**'],
     pool: 'workers',
     setupFiles: ['./test/setup.ts'],
   },

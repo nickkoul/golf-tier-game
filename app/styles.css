@@ -312,6 +312,57 @@ h2 {
   padding: 23px 0;
   text-transform: uppercase;
 }
+.auth-page {
+  margin: 0 auto;
+  max-width: 520px;
+  min-height: 100vh;
+  padding: 56px 24px;
+}
+.auth-wordmark {
+  color: var(--navy);
+}
+.auth-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  margin-top: 64px;
+  padding: 36px;
+}
+.auth-card p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.auth-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+.auth-form label {
+  font-size: 13px;
+  font-weight: 800;
+}
+.auth-form input {
+  border: 1px solid var(--line);
+  font: inherit;
+  min-height: 44px;
+  padding: 10px;
+}
+.auth-form button {
+  justify-self: start;
+  margin-top: 8px;
+}
+.form-error {
+  background: #fbe8e5;
+  color: #872f23 !important;
+  padding: 12px;
+}
+.form-success {
+  background: #e0f1e9;
+  color: #145640 !important;
+  padding: 12px;
+}
+.profile-email {
+  font-size: 13px;
+}
 
 @media (max-width: 1228px) {
   .event-masthead,

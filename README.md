@@ -16,6 +16,7 @@ example:
 
 ```sh
 npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put EMAIL_FROM
 npx wrangler secret put VERIFICATION_TOKEN
 ```
 
