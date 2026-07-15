@@ -5,5 +5,5 @@ export function meta(_: Route.MetaArgs) {
 }
 
 export default function Home() {
-  return <main>Golf Tier Game</main>;
+  return <main>Welcome to Golf Tier Game!</main>;
 }
