@@ -6,7 +6,7 @@ test('a visitor can request a passwordless sign-in link', async ({ page }) => {
   await page.goto('/sign-in');
 
   await expect(
-    page.getByRole('heading', { name: 'Sign in with email' }),
+    page.getByRole('heading', { name: 'Make Sunday interesting.' }),
   ).toBeVisible();
   await page.getByLabel('Email address').fill('golfer@example.com');
   await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
