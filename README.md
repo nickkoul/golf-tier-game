@@ -10,8 +10,9 @@ React Router v7 application running on Cloudflare Workers with D1 persistence.
 
 ## Production configuration
 
-Set the `database_id` in `wrangler.jsonc` to the production D1 database ID before
-deploying. Store production credentials only as Worker secrets, for example:
+Set the `database_id` in `wrangler.deploy.jsonc` to the production D1 database
+ID before deploying. Store production credentials only as Worker secrets, for
+example:
 
 ```sh
 npx wrangler secret put RESEND_API_KEY
