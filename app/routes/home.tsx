@@ -19,8 +19,8 @@ export default function Home() {
           </a>
           <a href="#how-it-works">How It Works</a>
         </nav>
-        <a className="account-link button button-primary" href="#sign-in">
-          Sign in <span aria-hidden="true">&rarr;</span>
+        <a className="account-link button button-primary" href="/contests/new">
+          Create contest <span aria-hidden="true">&rarr;</span>
         </a>
       </header>
 

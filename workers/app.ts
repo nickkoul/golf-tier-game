@@ -6,6 +6,12 @@ import {
   updateDisplayName,
   verifySignInLink,
 } from '../app/services/auth.server';
+import {
+  availableTournaments,
+  createContest,
+  ownerContest,
+  ownerContests,
+} from '../app/services/contest.server';
 import { createRequestHandler } from 'react-router';
 
 const requestHandler = createRequestHandler(
@@ -27,6 +33,48 @@ export default {
     if (url.pathname === '/api/auth/request')
       return requestSignInLink(request, env);
     if (url.pathname === '/api/profile') return updateDisplayName(request, env);
+    if (url.pathname === '/api/tournaments') {
+      const user = await authenticatedUser(request, env);
+      return user
+        ? Response.json(await availableTournaments(env.DB))
+        : Response.json({ error: 'Authentication required.' }, { status: 401 });
+    }
+    if (url.pathname === '/api/contests') {
+      const user = await authenticatedUser(request, env);
+      if (!user)
+        return Response.json(
+          { error: 'Authentication required.' },
+          { status: 401 },
+        );
+      if (request.method === 'GET')
+        return Response.json(await ownerContests(env.DB, user.id));
+      if (request.method === 'POST') {
+        const result = await createContest(
+          env.DB,
+          user.id,
+          await request.json().catch(() => null),
+        );
+        return 'error' in result
+          ? Response.json({ error: result.error }, { status: result.status })
+          : Response.json(result.contest, { status: 201 });
+      }
+    }
+    if (url.pathname.startsWith('/api/contests/')) {
+      const user = await authenticatedUser(request, env);
+      if (!user)
+        return Response.json(
+          { error: 'Authentication required.' },
+          { status: 401 },
+        );
+      const contest = await ownerContest(
+        env.DB,
+        user.id,
+        url.pathname.slice('/api/contests/'.length),
+      );
+      return contest
+        ? Response.json(contest)
+        : Response.json({ error: 'Contest not found.' }, { status: 404 });
+    }
     if (url.pathname === '/api/private') {
       const user = await authenticatedUser(request, env);
       return user

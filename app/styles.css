@@ -376,6 +376,131 @@ h2 {
 .profile-email {
   font-size: 13px;
 }
+.contest-page {
+  margin: 0 auto;
+  max-width: 920px;
+  min-height: 100vh;
+  padding: 48px 24px 80px;
+}
+.contest-heading {
+  border-bottom: 2px solid var(--ink);
+  margin-top: 58px;
+  padding-bottom: 34px;
+}
+.contest-heading > p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 0;
+  max-width: 550px;
+}
+.contest-form {
+  display: grid;
+  gap: 50px;
+  margin-top: 45px;
+}
+.contest-form section > h2,
+.contest-page section > h2 {
+  margin-bottom: 22px;
+}
+.tournament-picker {
+  display: grid;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  max-width: 460px;
+}
+.tournament-picker select,
+.tier-controls input {
+  background: #fff;
+  border: 1px solid var(--line);
+  font: inherit;
+  min-height: 44px;
+  padding: 10px;
+}
+.tournament-facts {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 15px 0 0;
+}
+.tier-editor {
+  border: 1px solid var(--line);
+  margin: 16px 0;
+  padding: 20px;
+}
+.tier-editor legend {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 0 6px;
+  text-transform: uppercase;
+}
+.tier-controls {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tier-controls label {
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 6px;
+  margin-right: auto;
+  min-width: 240px;
+}
+.tier-controls button,
+.contest-form > section > .button {
+  background: transparent;
+  border: 1px solid var(--line);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  min-height: 36px;
+  padding: 0 10px;
+  text-transform: uppercase;
+}
+.tier-controls button:disabled {
+  color: var(--muted);
+}
+.golfer-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 20px;
+}
+.golfer-options label {
+  font-size: 13px;
+}
+.golfer-options input {
+  margin-right: 5px;
+}
+.create-contest {
+  justify-self: start;
+}
+.create-contest:disabled {
+  background: #9ba8a1;
+}
+.tier-list {
+  border-top: 1px solid var(--line);
+  list-style: decimal-leading-zero;
+  margin: 0;
+  max-width: 620px;
+  padding: 0 0 0 38px;
+}
+.tier-list li {
+  border-bottom: 1px solid var(--line);
+  padding: 18px 0 18px 10px;
+}
+.tier-list strong,
+.tier-list span {
+  display: block;
+}
+.tier-list span {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 5px;
+}
 .game-preview {
   background: var(--navy);
   color: #fff;
@@ -474,6 +599,16 @@ h2 {
 @media (max-width: 640px) {
   .auth-page {
     padding: 32px 18px;
+  }
+  .contest-page {
+    padding: 32px 18px 58px;
+  }
+  .contest-heading {
+    margin-top: 38px;
+  }
+  .tier-controls label {
+    margin-right: 0;
+    width: 100%;
   }
   .auth-layout {
     grid-template-columns: 1fr;
