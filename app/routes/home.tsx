@@ -1,6 +1,6 @@
 import { redirect, useLoaderData } from 'react-router';
 import { authenticatedUser } from '../services/auth.server';
-import { ownerContests } from '../services/contest.server';
+import { userContests } from '../services/contest.server';
 import type { Route } from './+types/home';
 
 export function meta(_: Route.MetaArgs) {
@@ -11,7 +11,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const { cloudflare } = context as { cloudflare: { env: Env } };
   const user = await authenticatedUser(request, cloudflare.env);
   if (!user) throw redirect('/sign-in');
-  return { contests: await ownerContests(cloudflare.env.DB, user.id) };
+  return { contests: await userContests(cloudflare.env.DB, user.id) };
 }
 
 export default function Home() {
@@ -26,6 +26,9 @@ export default function Home() {
         </a>
         <a className="account-link button button-primary" href="/contests/new">
           Create contest <span aria-hidden="true">&rarr;</span>
+        </a>
+        <a className="account-link" href="/invitations">
+          Invitations
         </a>
       </header>
 

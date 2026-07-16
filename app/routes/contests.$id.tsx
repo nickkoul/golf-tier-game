@@ -1,6 +1,7 @@
 import { redirect, useLoaderData } from 'react-router';
+import { useState } from 'react';
 import { authenticatedUser } from '../services/auth.server';
-import { ownerContest } from '../services/contest.server';
+import { contestForUser, contestManagement } from '../services/contest.server';
 import type { Route } from './+types/contests.$id';
 
 function timeInZone(value: string, timeZone: string) {
@@ -15,13 +16,18 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const { cloudflare } = context as { cloudflare: { env: Env } };
   const user = await authenticatedUser(request, cloudflare.env);
   if (!user) throw redirect('/sign-in');
-  const contest = await ownerContest(cloudflare.env.DB, user.id, params.id);
+  const contest = await contestForUser(cloudflare.env.DB, user.id, params.id);
   if (!contest) throw new Response('Contest not found.', { status: 404 });
-  return contest;
+  return {
+    contest,
+    management: contest.isOwner
+      ? await contestManagement(cloudflare.env.DB, user.id, params.id)
+      : null,
+  };
 }
 
 export default function ContestDetail() {
-  const contest = useLoaderData<typeof loader>();
+  const { contest, management } = useLoaderData<typeof loader>();
   return (
     <main className="contest-page">
       <a
@@ -56,6 +62,114 @@ export default function ContestDetail() {
           ))}
         </ol>
       </section>
+      {management && (
+        <ContestOwnerControls contestId={contest.id} management={management} />
+      )}
+      {!contest.isOwner && <LeaveContest contestId={contest.id} />}
     </main>
+  );
+}
+
+function ContestOwnerControls({
+  contestId,
+  management,
+}: {
+  contestId: string;
+  management: NonNullable<Awaited<ReturnType<typeof contestManagement>>>;
+}) {
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  async function invite(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const response = await fetch(`/api/contests/${contestId}/invitations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    setMessage(
+      response.ok
+        ? `Invitation sent to ${email}.`
+        : ((await response.json()) as { error: string }).error,
+    );
+    if (response.ok) window.location.reload();
+  }
+  async function remove(path: string) {
+    const response = await fetch(`/api/contests/${contestId}/${path}`, {
+      method: 'DELETE',
+    });
+    if (response.ok) window.location.reload();
+  }
+  async function resend(invitationEmail: string) {
+    const response = await fetch(`/api/contests/${contestId}/invitations`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: invitationEmail }),
+    });
+    if (response.ok) window.location.reload();
+  }
+  return (
+    <section aria-labelledby="participants-heading">
+      <p className="eyebrow">Contest access</p>
+      <h2 id="participants-heading">Invite Participants</h2>
+      <form onSubmit={invite} className="auth-form">
+        <label htmlFor="invite-email">Email address</label>
+        <input
+          id="invite-email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+        <button className="button button-primary" type="submit">
+          Send invitation
+        </button>
+      </form>
+      {message && <p role="status">{message}</p>}
+      <h3>Pending invitations</h3>
+      <ul>
+        {management.invitations.map((invitation) => (
+          <li key={invitation.id}>
+            {invitation.email}{' '}
+            <button type="button" onClick={() => resend(invitation.email)}>
+              Resend invitation
+            </button>{' '}
+            <button
+              type="button"
+              onClick={() => remove(`invitations/${invitation.id}`)}
+            >
+              Revoke invitation
+            </button>
+          </li>
+        ))}
+      </ul>
+      <h3>Participants</h3>
+      <ul>
+        {management.participants.map((participant) => (
+          <li key={participant.id}>
+            {participant.displayName || participant.email}{' '}
+            <button
+              type="button"
+              onClick={() => remove(`participants/${participant.id}`)}
+            >
+              Remove Participant
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function LeaveContest({ contestId }: { contestId: string }) {
+  async function leave() {
+    const response = await fetch(`/api/contests/${contestId}/participation`, {
+      method: 'DELETE',
+    });
+    if (response.ok) window.location.assign('/');
+  }
+  return (
+    <button className="button" type="button" onClick={leave}>
+      Leave Contest
+    </button>
   );
 }

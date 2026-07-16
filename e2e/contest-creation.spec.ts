@@ -73,4 +73,25 @@ test('a Contest Owner creates an immutable Contest from a future Tournament fiel
   await expect(page.getByText('Your field is set.')).toBeVisible();
   await expect(page.getByText('Tier 1')).toBeVisible();
   await expect(page.getByText('Contenders')).toBeVisible();
+  const contestId = page.url().split('/').pop()!;
+
+  const inviteeEmail = `invitee-${randomUUID()}@example.com`;
+  await page.getByLabel('Email address').last().fill(inviteeEmail);
+  await page.getByRole('button', { name: 'Send invitation' }).click();
+  await expect(page.getByText(inviteeEmail)).toBeVisible();
+  await page.getByRole('button', { name: 'Resend invitation' }).click();
+  await expect(page.getByText(inviteeEmail)).toBeVisible();
+  await page.getByRole('button', { name: 'Revoke invitation' }).click();
+  await expect(page.getByText(inviteeEmail)).not.toBeVisible();
+  const participantId = randomUUID();
+  executeLocalSql(
+    `INSERT INTO users (id, email, display_name, created_at) VALUES ('${participantId}', 'participant-${participantId}@example.com', 'Pat Participant', '${new Date().toISOString()}')`,
+  );
+  executeLocalSql(
+    `INSERT INTO participants (contest_id, user_id, joined_at) VALUES ('${contestId}', '${participantId}', '${new Date().toISOString()}')`,
+  );
+  await page.reload();
+  await expect(page.getByText('Pat Participant')).toBeVisible();
+  await page.getByRole('button', { name: 'Remove Participant' }).click();
+  await expect(page.getByText('Pat Participant')).not.toBeVisible();
 });
