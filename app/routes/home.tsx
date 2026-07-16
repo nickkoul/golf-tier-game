@@ -15,7 +15,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 export default function Home() {
-  const { contests } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
+  const contests = data?.contests ?? [];
   return (
     <div className="app-shell">
       <header className="site-header">
