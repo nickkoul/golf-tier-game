@@ -69,11 +69,24 @@ describe('passwordless authentication', () => {
       displayName: 'Mina Golfer',
     });
 
+    const profileSaved = await SELF.fetch('http://example.com/api/profile', {
+      method: 'POST',
+      headers: {
+        accept: 'text/html',
+        cookie: session,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: 'displayName=Mina+Home',
+      redirect: 'manual',
+    });
+    expect(profileSaved.status).toBe(303);
+    expect(profileSaved.headers.get('location')).toBe('http://example.com/');
+
     const privateData = await SELF.fetch('http://example.com/api/private', {
       headers: { cookie: session },
     });
     await expect(privateData.json()).resolves.toEqual({
-      user: { email, displayName: 'Mina Golfer' },
+      user: { email, displayName: 'Mina Home' },
     });
 
     const otherToken = crypto.randomUUID();

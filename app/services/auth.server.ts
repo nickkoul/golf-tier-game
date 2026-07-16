@@ -185,7 +185,7 @@ export async function updateDisplayName(
     .bind(displayName, user.id)
     .run();
   if (request.headers.get('accept')?.includes('text/html')) {
-    return Response.redirect(new URL('/profile?saved=1', request.url), 303);
+    return Response.redirect(new URL('/', request.url), 303);
   }
   return Response.json({ displayName });
 }

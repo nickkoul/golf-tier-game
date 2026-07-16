@@ -37,6 +37,8 @@ test('a visitor can request a passwordless sign-in link', async ({ page }) => {
   await expect(page).toHaveURL(/\/profile$/);
   await page.getByLabel('Display name').fill('Mina Golfer');
   await page.getByRole('button', { name: 'Save display name' }).click();
-  await expect(page.getByRole('status')).toHaveText('Display name saved.');
-  await expect(page.getByLabel('Display name')).toHaveValue('Mina Golfer');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole('heading', { name: 'My Contests' }),
+  ).toBeVisible();
 });
