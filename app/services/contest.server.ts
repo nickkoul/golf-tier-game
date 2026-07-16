@@ -7,13 +7,18 @@ type Tournament = {
 };
 
 type TierInput = { name: string; golferIds: string[] };
+type LineupSelection = { tierId: string; golferId: string };
 
 type Contest = {
   id: string;
   name: string;
   lineupLockAt: string;
   tournamentTimeZone: string;
-  tiers: { name: string; golfers: { id: string; name: string }[] }[];
+  tiers: {
+    id: string;
+    name: string;
+    golfers: { id: string; name: string }[];
+  }[];
 };
 
 type CreateContestResult =
@@ -165,6 +170,7 @@ export async function createContest(
       lineupLockAt: tournament.startsAt,
       tournamentTimeZone: tournament.timeZone,
       tiers: tierRecords.map((tier) => ({
+        id: tier.id,
         name: tier.name,
         golfers: tier.golferIds.map((id) => golfers.get(id)!),
       })),
@@ -207,7 +213,14 @@ export async function contestForUser(
   userId: string,
   contestId: string,
   ownerOnly = false,
-): Promise<(Contest & { isOwner: boolean }) | null> {
+): Promise<
+  | (Contest & {
+      isOwner: boolean;
+      lineup: LineupSelection[];
+      participants: { displayName: string; entered: boolean }[];
+    })
+  | null
+> {
   const contest = await db
     .prepare(
       `SELECT contests.id, contests.name, contests.lineup_lock_at AS lineupLockAt, contests.tournament_time_zone AS tournamentTimeZone,
@@ -224,11 +237,24 @@ export async function contestForUser(
     )
     .bind(contestId)
     .all<{ id: string; name: string }>();
+  const { results: participants } = await db
+    .prepare(
+      `SELECT users.display_name AS displayName, users.email,
+         EXISTS (SELECT 1 FROM lineups WHERE contest_id = contests.id AND user_id = users.id) AS entered
+       FROM users
+       JOIN contests ON contests.id = ?
+       LEFT JOIN participants ON participants.contest_id = contests.id AND participants.user_id = users.id
+       WHERE users.id = contests.owner_user_id OR participants.user_id IS NOT NULL
+       ORDER BY users.id = contests.owner_user_id DESC, participants.joined_at`,
+    )
+    .bind(contestId)
+    .all<{ displayName: string; email: string; entered: number }>();
   return {
     ...contest,
     isOwner: Boolean(contest.isOwner),
     tiers: await Promise.all(
       tiers.map(async (tier) => ({
+        id: tier.id,
         name: tier.name,
         golfers: await (async () => {
           const { results } = await db
@@ -241,7 +267,135 @@ export async function contestForUser(
         })(),
       })),
     ),
+    lineup: await lineupForUser(db, contestId, userId),
+    participants: participants.map((participant) => ({
+      displayName: participant.displayName || participant.email,
+      entered: Boolean(participant.entered),
+    })),
   };
+}
+
+async function lineupForUser(
+  db: D1Database,
+  contestId: string,
+  userId: string,
+) {
+  const { results } = await db
+    .prepare(
+      `SELECT lineup_selections.tier_id AS tierId, lineup_selections.golfer_id AS golferId
+       FROM lineups
+       JOIN lineup_selections ON lineup_selections.lineup_id = lineups.id
+       JOIN tiers ON tiers.id = lineup_selections.tier_id
+       WHERE lineups.contest_id = ? AND lineups.user_id = ?
+       ORDER BY tiers.position`,
+    )
+    .bind(contestId, userId)
+    .all<LineupSelection>();
+  return results;
+}
+
+function validLineupSelections(value: unknown): LineupSelection[] | null {
+  const selections =
+    value && typeof value === 'object'
+      ? (value as { selections?: unknown }).selections
+      : null;
+  if (!Array.isArray(selections)) return null;
+  const tierIds = new Set<string>();
+  const result: LineupSelection[] = [];
+  for (const selection of selections) {
+    if (!selection || typeof selection !== 'object') return null;
+    const { tierId, golferId } = selection as {
+      tierId?: unknown;
+      golferId?: unknown;
+    };
+    if (
+      typeof tierId !== 'string' ||
+      typeof golferId !== 'string' ||
+      !tierId ||
+      !golferId ||
+      tierIds.has(tierId)
+    )
+      return null;
+    tierIds.add(tierId);
+    result.push({ tierId, golferId });
+  }
+  return result;
+}
+
+export async function submitLineup(
+  db: D1Database,
+  userId: string,
+  contestId: string,
+  value: unknown,
+) {
+  const contest = await contestForUser(db, userId, contestId);
+  if (!contest) return error('Contest not found.', 404);
+  if (new Date(contest.lineupLockAt) <= new Date())
+    return error('Lineups cannot be changed after Lineup Lock.', 400);
+  const selections = validLineupSelections(value);
+  if (!selections || selections.length !== contest.tiers.length)
+    return error('Choose one eligible Golfer from every Tier.', 400);
+
+  const eligibleGolfers = new Map(
+    contest.tiers.map((tier) => [
+      tier.id,
+      new Set(tier.golfers.map((golfer) => golfer.id)),
+    ]),
+  );
+  if (
+    selections.some(
+      ({ tierId, golferId }) => !eligibleGolfers.get(tierId)?.has(golferId),
+    )
+  )
+    return error('Choose one eligible Golfer from every Tier.', 400);
+
+  const lineupId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db.batch([
+    db
+      .prepare(
+        'DELETE FROM lineup_selections WHERE lineup_id IN (SELECT id FROM lineups WHERE contest_id = ? AND user_id = ?)',
+      )
+      .bind(contestId, userId),
+    db
+      .prepare('DELETE FROM lineups WHERE contest_id = ? AND user_id = ?')
+      .bind(contestId, userId),
+    db
+      .prepare(
+        'INSERT INTO lineups (id, contest_id, user_id, created_at) VALUES (?, ?, ?, ?)',
+      )
+      .bind(lineupId, contestId, userId, now),
+    ...selections.map(({ tierId, golferId }) =>
+      db
+        .prepare(
+          'INSERT INTO lineup_selections (lineup_id, tier_id, golfer_id) VALUES (?, ?, ?)',
+        )
+        .bind(lineupId, tierId, golferId),
+    ),
+  ]);
+  return { lineup: selections };
+}
+
+export async function removeLineup(
+  db: D1Database,
+  userId: string,
+  contestId: string,
+) {
+  const contest = await contestForUser(db, userId, contestId);
+  if (!contest) return error('Contest not found.', 404);
+  if (new Date(contest.lineupLockAt) <= new Date())
+    return error('Lineups cannot be changed after Lineup Lock.', 400);
+  await db.batch([
+    db
+      .prepare(
+        'DELETE FROM lineup_selections WHERE lineup_id IN (SELECT id FROM lineups WHERE contest_id = ? AND user_id = ?)',
+      )
+      .bind(contestId, userId),
+    db
+      .prepare('DELETE FROM lineups WHERE contest_id = ? AND user_id = ?')
+      .bind(contestId, userId),
+  ]);
+  return {};
 }
 
 export async function inviteParticipant(
@@ -334,10 +488,19 @@ export async function leaveContest(
   if (!contest || contest.isOwner) return error('Contest not found.', 404);
   if (new Date(contest.lineupLockAt) <= new Date())
     return error('Participants cannot leave after Lineup Lock.', 400);
-  await db
-    .prepare('DELETE FROM participants WHERE contest_id = ? AND user_id = ?')
-    .bind(contestId, userId)
-    .run();
+  await db.batch([
+    db
+      .prepare(
+        'DELETE FROM lineup_selections WHERE lineup_id IN (SELECT id FROM lineups WHERE contest_id = ? AND user_id = ?)',
+      )
+      .bind(contestId, userId),
+    db
+      .prepare('DELETE FROM lineups WHERE contest_id = ? AND user_id = ?')
+      .bind(contestId, userId),
+    db
+      .prepare('DELETE FROM participants WHERE contest_id = ? AND user_id = ?')
+      .bind(contestId, userId),
+  ]);
   return {};
 }
 
@@ -347,8 +510,8 @@ export async function revokeInvitation(
   contestId: string,
   invitationId: string,
 ) {
-  if (!(await ownerContest(db, ownerUserId, contestId)))
-    return error('Contest not found.', 404);
+  const contest = await ownerContest(db, ownerUserId, contestId);
+  if (!contest) return error('Contest not found.', 404);
   const result = await db
     .prepare(
       'UPDATE invitations SET revoked_at = ? WHERE id = ? AND contest_id = ? AND revoked_at IS NULL AND responded_at IS NULL',
@@ -364,13 +527,25 @@ export async function removeParticipant(
   contestId: string,
   participantId: string,
 ) {
-  if (!(await ownerContest(db, ownerUserId, contestId)))
-    return error('Contest not found.', 404);
+  const contest = await ownerContest(db, ownerUserId, contestId);
+  if (!contest) return error('Contest not found.', 404);
   const result = await db
     .prepare('DELETE FROM participants WHERE contest_id = ? AND user_id = ?')
     .bind(contestId, participantId)
     .run();
-  return result.meta.changes ? {} : error('Participant not found.', 404);
+  if (!result.meta.changes) return error('Participant not found.', 404);
+  if (new Date(contest.lineupLockAt) > new Date())
+    await db.batch([
+      db
+        .prepare(
+          'DELETE FROM lineup_selections WHERE lineup_id IN (SELECT id FROM lineups WHERE contest_id = ? AND user_id = ?)',
+        )
+        .bind(contestId, participantId),
+      db
+        .prepare('DELETE FROM lineups WHERE contest_id = ? AND user_id = ?')
+        .bind(contestId, participantId),
+    ]);
+  return {};
 }
 
 export async function contestManagement(

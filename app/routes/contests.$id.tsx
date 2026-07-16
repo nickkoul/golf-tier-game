@@ -28,6 +28,7 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
 export default function ContestDetail() {
   const { contest, management } = useLoaderData<typeof loader>();
+  const beforeLineupLock = new Date(contest.lineupLockAt) > new Date();
   return (
     <main className="contest-page">
       <a
@@ -62,6 +63,30 @@ export default function ContestDetail() {
           ))}
         </ol>
       </section>
+      {beforeLineupLock && (
+        <>
+          <section aria-labelledby="participants-heading">
+            <p className="eyebrow">Contest runway</p>
+            <h2 id="participants-heading">Participants</h2>
+            <ul className="participant-list">
+              {contest.participants.map((participant) => (
+                <li key={participant.displayName}>
+                  <span>{participant.displayName}</span>
+                  <strong>
+                    {participant.entered ? 'Entered' : 'Not entered'}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <a
+            className="button button-primary"
+            href={`/contests/${contest.id}/lineup`}
+          >
+            {contest.lineup.length ? 'Edit your Lineup' : 'Enter your Lineup'}
+          </a>
+        </>
+      )}
       {management && (
         <ContestOwnerControls contestId={contest.id} management={management} />
       )}

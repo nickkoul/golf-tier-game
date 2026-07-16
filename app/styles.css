@@ -550,6 +550,59 @@ h2 {
 .tier-list span {
   display: block;
 }
+.participant-list {
+  border-top: 1px solid var(--line);
+  list-style: none;
+  margin: 0 0 24px;
+  max-width: 620px;
+  padding: 0;
+}
+.participant-list li {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 0;
+}
+.participant-list strong {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.lineup-form {
+  padding-bottom: 90px;
+}
+.lineup-tier {
+  border: 1px solid var(--line);
+  margin: 24px 0;
+  padding: 18px;
+}
+.lineup-tier legend {
+  font-family: var(--display-font);
+  font-size: 23px;
+  padding: 0 6px;
+}
+.lineup-tier label {
+  border-top: 1px solid var(--line);
+  display: block;
+  padding: 13px 0;
+}
+.lineup-tier input {
+  margin-right: 8px;
+}
+.lineup-actions {
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  bottom: 0;
+  display: flex;
+  gap: 12px;
+  left: 0;
+  padding: 16px max(24px, calc((100vw - 920px) / 2));
+  position: fixed;
+  right: 0;
+}
+.lineup-actions .button:disabled {
+  background: #9ba8a1;
+}
 .tier-list span {
   color: var(--muted);
   font-size: 13px;

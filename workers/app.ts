@@ -15,8 +15,10 @@ import {
   ownerContest,
   ownerContests,
   removeParticipant,
+  removeLineup,
   respondToInvitation,
   revokeInvitation,
+  submitLineup,
 } from '../app/services/contest.server';
 import { createRequestHandler } from 'react-router';
 
@@ -155,6 +157,33 @@ export default {
       }
       if (action === 'participation' && request.method === 'DELETE') {
         const result = await leaveContest(env.DB, user.id, contestId);
+        return 'error' in result
+          ? Response.json(result, {
+              status:
+                'status' in result && typeof result.status === 'number'
+                  ? result.status
+                  : 400,
+            })
+          : new Response(null, { status: 204 });
+      }
+      if (action === 'lineup' && request.method === 'PUT') {
+        const result = await submitLineup(
+          env.DB,
+          user.id,
+          contestId,
+          await request.json().catch(() => null),
+        );
+        return 'error' in result
+          ? Response.json(result, {
+              status:
+                'status' in result && typeof result.status === 'number'
+                  ? result.status
+                  : 400,
+            })
+          : Response.json(result.lineup);
+      }
+      if (action === 'lineup' && request.method === 'DELETE') {
+        const result = await removeLineup(env.DB, user.id, contestId);
         return 'error' in result
           ? Response.json(result, {
               status:
