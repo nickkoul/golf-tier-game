@@ -8,6 +8,12 @@ React Router v7 application running on Cloudflare Workers with D1 persistence.
 2. Apply the local schema with `npx wrangler d1 migrations apply DB --local`.
 3. Start the Workers-compatible runtime with `npm run dev`.
 
+### Demo data
+
+Run `npm run dev:demo` to apply local migrations, seed a future Tournament with
+a two-Golfer field, and start the app. The command prints a one-click local
+sign-in URL for `demo@golftiers.local`.
+
 ## Production configuration
 
 Set the `database_id` in `wrangler.deploy.jsonc` to the production D1 database

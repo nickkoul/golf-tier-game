@@ -34,6 +34,11 @@ test('a Contest Owner creates an immutable Contest from a future Tournament fiel
 
   await page.goto(`/verify?token=${token}`);
   await expect(page).toHaveURL(/\/profile$/);
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'My Contests' }),
+  ).toBeVisible();
+  await expect(page.getByText('No Contests yet')).toBeVisible();
   await page.goto('/contests/new');
 
   await page.getByLabel('Tournament').selectOption(tournamentId);

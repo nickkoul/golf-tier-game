@@ -301,6 +301,60 @@ h2 {
   background: var(--green);
   color: #fff;
 }
+.contests-main {
+  margin: 0 auto;
+  max-width: 920px;
+  min-height: calc(100vh - 76px);
+  padding: 76px 0;
+}
+.contests-heading {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 34px;
+}
+.contests-heading h1 {
+  margin-bottom: 14px;
+}
+.contests-heading > p:not(.eyebrow),
+.contests-empty > p:not(.eyebrow),
+.contest-card > p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.contests-empty {
+  background: #fff;
+  border: 1px solid var(--line);
+  margin-top: 32px;
+  max-width: 580px;
+  padding: 36px;
+}
+.contests-empty h2 {
+  margin-bottom: 10px;
+}
+.contests-empty .button {
+  margin-top: 10px;
+}
+.contest-list {
+  border-top: 1px solid var(--line);
+  margin-top: 32px;
+}
+.contest-card {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  display: block;
+  padding: 28px;
+}
+.contest-card:hover {
+  background: #ebe9e2;
+}
+.contest-card .eyebrow {
+  margin-bottom: 8px;
+}
+.contest-card h2 {
+  margin-bottom: 8px;
+}
+.contest-card > p:not(.eyebrow) {
+  margin-bottom: 0;
+}
 .site-footer {
   border-top: 1px solid var(--line);
   color: var(--muted);
@@ -625,6 +679,9 @@ h2 {
   .site-header {
     height: 64px;
     padding: 0 18px;
+  }
+  .contests-main {
+    padding: 46px 18px;
   }
   .primary-nav {
     display: none;

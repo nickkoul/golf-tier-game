@@ -1,11 +1,21 @@
-import { standingsPreview, tournamentPreview } from '../fixtures/home';
+import { redirect, useLoaderData } from 'react-router';
+import { authenticatedUser } from '../services/auth.server';
+import { ownerContests } from '../services/contest.server';
 import type { Route } from './+types/home';
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: 'Golf Tiers | Genesis Invitational' }];
+  return [{ title: 'Golf Tiers | My Contests' }];
+}
+
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const { cloudflare } = context as { cloudflare: { env: Env } };
+  const user = await authenticatedUser(request, cloudflare.env);
+  if (!user) throw redirect('/sign-in');
+  return { contests: await ownerContests(cloudflare.env.DB, user.id) };
 }
 
 export default function Home() {
+  const { contests } = useLoaderData<typeof loader>();
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -13,100 +23,48 @@ export default function Home() {
           <span>GOLF</span>
           <strong>TIERS</strong>
         </a>
-        <nav className="primary-nav" aria-label="Primary navigation">
-          <a className="is-current" href="#standings">
-            My Contests
-          </a>
-          <a href="#how-it-works">How It Works</a>
-        </nav>
         <a className="account-link button button-primary" href="/contests/new">
           Create contest <span aria-hidden="true">&rarr;</span>
         </a>
       </header>
 
-      <main>
-        <section className="event-masthead" aria-labelledby="event-title">
-          <div className="event-kicker">
-            <span className="status-dot live-dot" /> Live contest
-          </div>
-          <div className="event-summary">
-            <div>
-              <p className="eyebrow">{tournamentPreview.contestName}</p>
-              <h1 id="event-title">{tournamentPreview.name}</h1>
-              <p className="event-details">
-                {tournamentPreview.course}, {tournamentPreview.location}{' '}
-                <span aria-hidden="true">/</span> {tournamentPreview.dateRange}
-              </p>
-            </div>
-            <div className="lock-status">
-              <span>Lineup Lock</span>
-              <strong>Locked</strong>
-              <small>{tournamentPreview.lockTime}</small>
-            </div>
-          </div>
-        </section>
-
-        <nav className="contest-nav" aria-label="Contest navigation">
-          <a className="is-selected" href="#standings">
-            Standings
-          </a>
-          <a href="#lineup">My Lineup</a>
-          <a href="#contest">Contest Details</a>
-        </nav>
-
+      <main className="contests-main">
         <section
-          className="standings-section"
-          id="standings"
-          aria-labelledby="standings-heading"
+          className="contests-heading"
+          aria-labelledby="contests-heading"
         >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Your contest</p>
-              <h2 id="standings-heading">Standings</h2>
-            </div>
-            <p className="update-time">Updated just now</p>
-          </div>
-
-          <div
-            className="standings-table"
-            role="table"
-            aria-label="Contest standings"
-          >
-            <div className="standings-row standings-header" role="row">
-              <span role="columnheader">Pos</span>
-              <span role="columnheader">Entrant</span>
-              <span role="columnheader">Fantasy Points</span>
-              <span role="columnheader">Lineup</span>
-            </div>
-            {standingsPreview.map((standing) => (
-              <div className="standings-row" role="row" key={standing.entrant}>
-                <span className="position" role="cell">
-                  {standing.position}
-                </span>
-                <span className="entrant" role="cell">
-                  <span className="avatar" aria-hidden="true">
-                    {standing.initials}
-                  </span>
-                  <span>
-                    <strong>{standing.entrant}</strong>
-                    <small>
-                      {standing.movement === 0
-                        ? 'No change'
-                        : `${standing.movement > 0 ? '+' : ''}${standing.movement} today`}
-                    </small>
-                  </span>
-                </span>
-                <span className="points" role="cell">
-                  {standing.fantasyPoints}
-                </span>
-                <span className="lineup-status" role="cell">
-                  <span className="status-dot status-mark" />{' '}
-                  {standing.selectedGolfers}/6
-                </span>
-              </div>
-            ))}
-          </div>
+          <p className="eyebrow">Your game</p>
+          <h1 id="contests-heading">My Contests</h1>
+          <p>Every Contest you create starts here.</p>
         </section>
+        {contests.length === 0 ? (
+          <section className="contests-empty" aria-labelledby="empty-heading">
+            <p className="eyebrow">Nothing on the tee yet</p>
+            <h2 id="empty-heading">No Contests yet</h2>
+            <p>
+              Choose an upcoming Tournament and build the board for your group.
+            </p>
+            <a className="button button-primary" href="/contests/new">
+              Create contest
+            </a>
+          </section>
+        ) : (
+          <section className="contest-list" aria-label="Your Contests">
+            {contests.map((contest) => (
+              <a
+                className="contest-card"
+                href={`/contests/${contest.id}`}
+                key={contest.id}
+              >
+                <p className="eyebrow">Private Contest</p>
+                <h2>{contest.name}</h2>
+                <p>
+                  Lineup Lock: {new Date(contest.lineupLockAt).toLocaleString()}
+                </p>
+              </a>
+            ))}
+          </section>
+        )}
       </main>
 
       <footer className="site-footer">

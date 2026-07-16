@@ -5,6 +5,7 @@
   "scripts": {
     "build": "react-router build",
     "dev": "vite",
+    "dev:demo": "node scripts/dev-demo.mjs",
     "deploy": "npm run build && wrangler deploy --config wrangler.deploy.jsonc",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
