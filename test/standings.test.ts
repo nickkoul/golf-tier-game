@@ -45,6 +45,7 @@ describe('Standings', () => {
       user.email.startsWith('entrant'),
     )!;
     const now = new Date().toISOString();
+    const staleAt = new Date(Date.now() - 16 * 60_000).toISOString();
     const tierId = crypto.randomUUID();
     const lineupA = crypto.randomUUID();
     const lineupB = crypto.randomUUID();
@@ -112,7 +113,7 @@ describe('Standings', () => {
         2,
         '12',
         '{}',
-        now,
+        staleAt,
       ),
     ]);
 
@@ -123,17 +124,79 @@ describe('Standings', () => {
     const contest = (await response.json()) as {
       standings: {
         status: string;
+        lastSuccessAt: string;
         entrants: {
-          position: number;
-          golfers: { name: string; fantasyPoints: number }[];
+          position: number | null;
+          fantasyPoints: number | null;
+          golfers: { name: string; fantasyPoints: number | null }[];
         }[];
       };
     };
     expect(contest.standings.status).toBe('provisional');
+    expect(contest.standings.lastSuccessAt).toBe(now);
     expect(contest.standings.entrants).toMatchObject([
       { position: 1, golfers: [{ name: 'Avery Ace', fantasyPoints: 11 }] },
-      { position: 1, golfers: [{ name: 'Blair Birdie', fantasyPoints: 11 }] },
+      {
+        position: null,
+        fantasyPoints: null,
+        golfers: [{ name: 'Blair Birdie', fantasyPoints: null }],
+      },
     ]);
+
+    await env.DB.prepare(
+      "UPDATE tournament_refreshes SET status = 'complete' WHERE tournament_id = ?",
+    )
+      .bind(tournamentId)
+      .run();
+    const finalResponse = await SELF.fetch(
+      `http://example.com/api/contests/${id}`,
+      { headers: { cookie: viewerSession } },
+    );
+    const finalContest = (await finalResponse.json()) as {
+      standings: {
+        status: string;
+        entrants: {
+          position: number | null;
+          fantasyPoints: number | null;
+          golfers: {
+            name: string;
+            fantasyPoints: number | null;
+            position: string | null;
+          }[];
+        }[];
+      };
+    };
+    expect(finalContest.standings).toMatchObject({
+      status: 'final',
+      entrants: [
+        { position: 1, fantasyPoints: 11 },
+        {
+          position: null,
+          fantasyPoints: null,
+          golfers: [
+            { name: 'Blair Birdie', fantasyPoints: null, position: null },
+          ],
+        },
+      ],
+    });
+
+    await env.DB.prepare(
+      "UPDATE tournament_refreshes SET status = 'cancelled' WHERE tournament_id = ?",
+    )
+      .bind(tournamentId)
+      .run();
+    const cancelledResponse = await SELF.fetch(
+      `http://example.com/api/contests/${id}`,
+      { headers: { cookie: viewerSession } },
+    );
+    const cancelledContest = (await cancelledResponse.json()) as {
+      standings: { status: string; entrants: unknown[] };
+    };
+    expect(cancelledContest.standings).toEqual({
+      status: 'cancelled',
+      lastSuccessAt: now,
+      entrants: [],
+    });
     expect(ownerSession).toContain('golf_tiers_session');
   });
 });

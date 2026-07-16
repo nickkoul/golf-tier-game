@@ -130,6 +130,14 @@ function Standings({
           : 'Provisional Standings'}
       </p>
       <h2 id="standings-heading">Standings</h2>
+      {standings.status === 'provisional' && (
+        <p>
+          Last successful refresh:{' '}
+          {standings.lastSuccessAt
+            ? new Date(standings.lastSuccessAt).toLocaleString()
+            : 'Waiting for ESPN data'}
+        </p>
+      )}
       <ol className="standings-table">
         {standings.entrants.map((entrant) => (
           <li

@@ -1,5 +1,7 @@
 import { fetchEspnTournament, type EspnTournament } from './espn';
 
+const scoringFreshnessMs = 15 * 60 * 1000;
+
 type GolferStanding = {
   name: string;
   fantasyPoints: number | null;
@@ -18,6 +20,7 @@ type EntrantStanding = {
 
 export type Standings = {
   status: 'provisional' | 'final' | 'cancelled';
+  lastSuccessAt: string | null;
   entrants: EntrantStanding[];
 };
 
@@ -27,19 +30,27 @@ export async function standingsForContest(
 ): Promise<Standings> {
   const refresh = await db
     .prepare(
-      'SELECT status FROM tournament_refreshes WHERE tournament_id = (SELECT tournament_id FROM contests WHERE id = ?)',
+      'SELECT status, last_success_at AS lastSuccessAt FROM tournament_refreshes WHERE tournament_id = (SELECT tournament_id FROM contests WHERE id = ?)',
     )
     .bind(contestId)
-    .first<{ status: 'active' | 'complete' | 'cancelled' }>();
+    .first<{
+      status: 'active' | 'complete' | 'cancelled';
+      lastSuccessAt: string;
+    }>();
   if (refresh?.status === 'cancelled')
-    return { status: 'cancelled', entrants: [] };
+    return {
+      status: 'cancelled',
+      lastSuccessAt: refresh.lastSuccessAt,
+      entrants: [],
+    };
   const { results } = await db
     .prepare(
       `SELECT lineups.id AS lineupId, COALESCE(users.display_name, users.email) AS displayName,
         tier_golfers.golfer_name AS name, golfer_scores.fantasy_points AS fantasyPoints,
-        golfer_scores.position, golfer_scores.score_to_par AS scoreToPar,
-        golfer_scores.current_round AS currentRound, golfer_scores.through_status AS throughStatus,
-        tiers.position AS tierPosition
+         golfer_scores.position, golfer_scores.score_to_par AS scoreToPar,
+         golfer_scores.current_round AS currentRound, golfer_scores.through_status AS throughStatus,
+         golfer_scores.refreshed_at AS refreshedAt,
+         tiers.position AS tierPosition
        FROM lineups
        JOIN users ON users.id = lineups.user_id
        JOIN lineup_selections ON lineup_selections.lineup_id = lineups.id
@@ -60,7 +71,9 @@ export async function standingsForContest(
       scoreToPar: string | null;
       currentRound: number | null;
       throughStatus: string | null;
+      refreshedAt: string | null;
     }>();
+  const staleBefore = Date.now() - scoringFreshnessMs;
   const entrants = new Map<string, EntrantStanding>();
   for (const row of results) {
     const entrant = entrants.get(row.lineupId) ?? {
@@ -69,16 +82,25 @@ export async function standingsForContest(
       position: null,
       golfers: [],
     };
+    const refreshedAt = row.refreshedAt ? Date.parse(row.refreshedAt) : NaN;
+    const freshnessThreshold =
+      refresh?.status === 'complete'
+        ? Date.parse(refresh.lastSuccessAt)
+        : staleBefore;
+    const scoringUnavailable =
+      row.fantasyPoints === null ||
+      !Number.isFinite(refreshedAt) ||
+      refreshedAt < freshnessThreshold;
     entrant.golfers.push({
       name: row.name,
-      fantasyPoints: row.fantasyPoints,
-      position: row.position,
-      scoreToPar: row.scoreToPar,
-      currentRound: row.currentRound,
-      throughStatus: row.throughStatus,
+      fantasyPoints: scoringUnavailable ? null : row.fantasyPoints,
+      position: scoringUnavailable ? null : row.position,
+      scoreToPar: scoringUnavailable ? null : row.scoreToPar,
+      currentRound: scoringUnavailable ? null : row.currentRound,
+      throughStatus: scoringUnavailable ? null : row.throughStatus,
     });
-    if (row.fantasyPoints === null) entrant.fantasyPoints = null;
-    else if (entrant.fantasyPoints !== null)
+    if (scoringUnavailable) entrant.fantasyPoints = null;
+    else if (entrant.fantasyPoints !== null && row.fantasyPoints !== null)
       entrant.fantasyPoints += row.fantasyPoints;
     entrants.set(row.lineupId, entrant);
   }
@@ -99,6 +121,7 @@ export async function standingsForContest(
   });
   return {
     status: refresh?.status === 'complete' ? 'final' : 'provisional',
+    lastSuccessAt: refresh?.lastSuccessAt ?? null,
     entrants: ranked,
   };
 }
@@ -110,24 +133,14 @@ export async function refreshTournament(
 ) {
   const refreshedAt = new Date().toISOString();
   await db.batch([
-    db
-      .prepare(
-        `INSERT INTO tournament_refreshes (tournament_id, status, last_success_at, source_payload)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(tournament_id) DO UPDATE SET status = excluded.status, last_success_at = excluded.last_success_at, source_payload = excluded.source_payload`,
-      )
-      .bind(
-        tournamentId,
-        tournament.status,
-        refreshedAt,
-        JSON.stringify(tournament.source),
-      ),
     ...tournament.golfers.map((golfer) =>
       db
         .prepare(
           `INSERT INTO golfer_scores (tournament_id, golfer_id, golfer_name, fantasy_points, position, score_to_par, current_round, through_status, source_payload, refreshed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(tournament_id, golfer_id) DO UPDATE SET golfer_name = excluded.golfer_name, fantasy_points = excluded.fantasy_points, position = excluded.position, score_to_par = excluded.score_to_par, current_round = excluded.current_round, through_status = excluded.through_status, source_payload = excluded.source_payload, refreshed_at = excluded.refreshed_at`,
+           SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+           WHERE COALESCE((SELECT status FROM tournament_refreshes WHERE tournament_id = ?), 'active') = 'active'
+           ON CONFLICT(tournament_id, golfer_id) DO UPDATE SET golfer_name = excluded.golfer_name, fantasy_points = excluded.fantasy_points, position = excluded.position, score_to_par = excluded.score_to_par, current_round = excluded.current_round, through_status = excluded.through_status, source_payload = excluded.source_payload, refreshed_at = excluded.refreshed_at
+           WHERE COALESCE((SELECT status FROM tournament_refreshes WHERE tournament_id = ?), 'active') = 'active'`,
         )
         .bind(
           tournamentId,
@@ -140,8 +153,23 @@ export async function refreshTournament(
           golfer.throughStatus,
           JSON.stringify(golfer.source),
           refreshedAt,
+          tournamentId,
+          tournamentId,
         ),
     ),
+    db
+      .prepare(
+        `INSERT INTO tournament_refreshes (tournament_id, status, last_success_at, source_payload)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(tournament_id) DO UPDATE SET status = excluded.status, last_success_at = excluded.last_success_at, source_payload = excluded.source_payload
+         WHERE tournament_refreshes.status = 'active'`,
+      )
+      .bind(
+        tournamentId,
+        tournament.status,
+        refreshedAt,
+        JSON.stringify(tournament.source),
+      ),
   ]);
 }
 

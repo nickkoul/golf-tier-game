@@ -1,6 +1,9 @@
 import { env } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
-import { refreshActiveTournaments } from '../app/services/standings.server';
+import {
+  refreshActiveTournaments,
+  refreshTournament,
+} from '../app/services/standings.server';
 
 describe('live scoring refresh', () => {
   it('polls only active Contest Tournaments and upserts ESPN-derived scores idempotently', async () => {
@@ -89,5 +92,127 @@ describe('live scoring refresh', () => {
       .bind(tournamentId)
       .first<{ count: number }>();
     expect(refreshes?.count).toBe(1);
+  });
+
+  it('retains the last successful provisional scores when ESPN refresh fails', async () => {
+    const tournamentId = crypto.randomUUID();
+    const userId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const refreshedAt = new Date(Date.now() - 60_000).toISOString();
+    await env.DB.batch([
+      env.DB.prepare(
+        'INSERT INTO users (id, email, display_name, created_at) VALUES (?, ?, ?, ?)',
+      ).bind(userId, `owner-${userId}@example.com`, 'Owner', now),
+      env.DB.prepare(
+        'INSERT INTO tournaments (id, name, starts_at, time_zone, source) VALUES (?, ?, ?, ?, ?)',
+      ).bind(tournamentId, 'Active', refreshedAt, 'America/New_York', 'espn'),
+      env.DB.prepare(
+        'INSERT INTO contests (id, owner_user_id, tournament_id, name, lineup_lock_at, tournament_time_zone, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).bind(
+        crypto.randomUUID(),
+        userId,
+        tournamentId,
+        'Active',
+        refreshedAt,
+        'America/New_York',
+        now,
+      ),
+      env.DB.prepare(
+        'INSERT INTO tournament_refreshes (tournament_id, status, last_success_at, source_payload) VALUES (?, ?, ?, ?)',
+      ).bind(tournamentId, 'active', refreshedAt, '{}'),
+      env.DB.prepare(
+        'INSERT INTO golfer_scores (tournament_id, golfer_id, golfer_name, fantasy_points, position, score_to_par, current_round, through_status, source_payload, refreshed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).bind(
+        tournamentId,
+        'golfer-a',
+        'Avery Ace',
+        12,
+        '1',
+        '-2',
+        1,
+        'F',
+        '{}',
+        refreshedAt,
+      ),
+    ]);
+
+    await refreshActiveTournaments(
+      env.DB,
+      async () => new Response(null, { status: 503 }),
+    );
+
+    const persisted = await env.DB.prepare(
+      `SELECT tournament_refreshes.last_success_at AS lastSuccessAt,
+          golfer_scores.fantasy_points AS fantasyPoints
+         FROM tournament_refreshes
+         JOIN golfer_scores ON golfer_scores.tournament_id = tournament_refreshes.tournament_id
+         WHERE tournament_refreshes.tournament_id = ?`,
+    )
+      .bind(tournamentId)
+      .first<{ lastSuccessAt: string; fantasyPoints: number }>();
+    expect(persisted).toEqual({
+      lastSuccessAt: refreshedAt,
+      fantasyPoints: 12,
+    });
+  });
+
+  it('does not let a stale refresh reopen a completed Tournament', async () => {
+    const tournamentId = crypto.randomUUID();
+    const completedAt = new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare(
+        'INSERT INTO tournaments (id, name, starts_at, time_zone, source) VALUES (?, ?, ?, ?, ?)',
+      ).bind(
+        tournamentId,
+        'Completed',
+        completedAt,
+        'America/New_York',
+        'espn',
+      ),
+      env.DB.prepare(
+        'INSERT INTO tournament_refreshes (tournament_id, status, last_success_at, source_payload) VALUES (?, ?, ?, ?)',
+      ).bind(tournamentId, 'complete', completedAt, '{}'),
+      env.DB.prepare(
+        'INSERT INTO golfer_scores (tournament_id, golfer_id, golfer_name, fantasy_points, position, score_to_par, current_round, through_status, source_payload, refreshed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).bind(
+        tournamentId,
+        'golfer-a',
+        'Avery Ace',
+        20,
+        '1',
+        '-8',
+        4,
+        'F',
+        '{}',
+        completedAt,
+      ),
+    ]);
+
+    await refreshTournament(env.DB, tournamentId, {
+      status: 'active',
+      golfers: [
+        {
+          id: 'golfer-a',
+          name: 'Avery Ace',
+          fantasyPoints: 10,
+          position: '2',
+          scoreToPar: '-3',
+          currentRound: 3,
+          throughStatus: '12',
+          source: {},
+        },
+      ],
+      source: {},
+    });
+
+    const persisted = await env.DB.prepare(
+      `SELECT tournament_refreshes.status, golfer_scores.fantasy_points AS fantasyPoints
+         FROM tournament_refreshes
+         JOIN golfer_scores ON golfer_scores.tournament_id = tournament_refreshes.tournament_id
+         WHERE tournament_refreshes.tournament_id = ?`,
+    )
+      .bind(tournamentId)
+      .first<{ status: string; fantasyPoints: number }>();
+    expect(persisted).toEqual({ status: 'complete', fantasyPoints: 20 });
   });
 });
