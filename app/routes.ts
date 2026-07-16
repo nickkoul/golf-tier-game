@@ -6,6 +6,5 @@ export default [
   route('profile', 'routes/profile.tsx'),
   route('contests/new', 'routes/contests.new.tsx'),
   route('contests/:id', 'routes/contests.$id.tsx'),
-  route('contests/:id/lineup', 'routes/contests.$id.lineup.tsx'),
   route('invitations', 'routes/invitations.tsx'),
 ] satisfies RouteConfig;

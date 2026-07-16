@@ -73,9 +73,12 @@ test('a Contest Owner creates an immutable Contest from a future Tournament fiel
   await expect(page.getByText('Your field is set.')).toBeVisible();
   await expect(page.getByText('Tier 1')).toBeVisible();
   await expect(page.getByText('Contenders')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Enter your Lineup' }),
+  ).toBeVisible();
   const contestId = page.url().split('/').pop()!;
 
-  await page.getByRole('link', { name: 'Enter your Lineup' }).click();
+  await page.goto(`/contests/${contestId}?lineup=edit`);
   await expect(
     page.getByRole('button', { name: 'Submit Lineup' }),
   ).toBeDisabled();

@@ -18,16 +18,22 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   if (!user) throw redirect('/sign-in');
   const contest = await contestForUser(cloudflare.env.DB, user.id, params.id);
   if (!contest) throw new Response('Contest not found.', { status: 404 });
+  const editing = new URL(request.url).searchParams.has('lineup');
+  if (editing && new Date(contest.lineupLockAt) <= new Date())
+    throw redirect(`/contests/${contest.id}`);
   return {
     contest,
-    management: contest.isOwner
-      ? await contestManagement(cloudflare.env.DB, user.id, params.id)
-      : null,
+    editing,
+    management:
+      contest.isOwner && !editing
+        ? await contestManagement(cloudflare.env.DB, user.id, params.id)
+        : null,
   };
 }
 
 export default function ContestDetail() {
-  const { contest, management } = useLoaderData<typeof loader>();
+  const { contest, editing, management } = useLoaderData<typeof loader>();
+  if (editing) return <LineupEditor contest={contest} />;
   const beforeLineupLock = new Date(contest.lineupLockAt) > new Date();
   return (
     <main className="contest-page">
@@ -50,7 +56,6 @@ export default function ContestDetail() {
         </p>
       </header>
       <section aria-labelledby="tier-board-heading">
-        <p className="eyebrow">Immutable Tier Board</p>
         <h2 id="tier-board-heading">Your field is set.</h2>
         <ol className="tier-list">
           {contest.tiers.map((tier) => (
@@ -66,7 +71,6 @@ export default function ContestDetail() {
       {beforeLineupLock && (
         <>
           <section aria-labelledby="participants-heading">
-            <p className="eyebrow">Contest runway</p>
             <h2 id="participants-heading">Participants</h2>
             <ul className="participant-list">
               {contest.participants.map((participant) => (
@@ -81,7 +85,7 @@ export default function ContestDetail() {
           </section>
           <a
             className="button button-primary"
-            href={`/contests/${contest.id}/lineup`}
+            href={`/contests/${contest.id}?lineup=edit`}
           >
             {contest.lineup.length ? 'Edit your Lineup' : 'Enter your Lineup'}
           </a>
@@ -91,6 +95,103 @@ export default function ContestDetail() {
         <ContestOwnerControls contestId={contest.id} management={management} />
       )}
       {!contest.isOwner && <LeaveContest contestId={contest.id} />}
+    </main>
+  );
+}
+
+function LineupEditor({
+  contest,
+}: {
+  contest: NonNullable<Awaited<ReturnType<typeof contestForUser>>>;
+}) {
+  const [selections, setSelections] = useState(() =>
+    Object.fromEntries(
+      contest.lineup.map(({ tierId, golferId }) => [tierId, golferId]),
+    ),
+  );
+  const [message, setMessage] = useState('');
+  const complete = contest.tiers.every((tier) => selections[tier.id]);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!complete) return;
+    const response = await fetch(`/api/contests/${contest.id}/lineup`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        selections: contest.tiers.map((tier) => ({
+          tierId: tier.id,
+          golferId: selections[tier.id],
+        })),
+      }),
+    });
+    if (response.ok) window.location.assign(`/contests/${contest.id}`);
+    else setMessage(((await response.json()) as { error: string }).error);
+  }
+
+  async function remove() {
+    const response = await fetch(`/api/contests/${contest.id}/lineup`, {
+      method: 'DELETE',
+    });
+    if (response.ok) window.location.assign(`/contests/${contest.id}`);
+    else setMessage(((await response.json()) as { error: string }).error);
+  }
+
+  return (
+    <main className="contest-page lineup-editor-page">
+      <a className="wordmark auth-wordmark" href={`/contests/${contest.id}`}>
+        <span>GOLF</span>
+        <strong>TIERS</strong>
+      </a>
+      <header className="contest-heading">
+        <p className="eyebrow">Your private Lineup</p>
+        <h1>{contest.name}</h1>
+        <p>Select one eligible Golfer from every Tier before Lineup Lock.</p>
+      </header>
+      <form className="lineup-form" onSubmit={submit}>
+        {contest.tiers.map((tier, position) => (
+          <fieldset key={tier.id} className="lineup-tier">
+            <legend>
+              {position + 1}. {tier.name}
+            </legend>
+            {tier.golfers.map((golfer) => (
+              <label key={golfer.id}>
+                <input
+                  type="radio"
+                  name={tier.id}
+                  checked={selections[tier.id] === golfer.id}
+                  onChange={() =>
+                    setSelections((current) => ({
+                      ...current,
+                      [tier.id]: golfer.id,
+                    }))
+                  }
+                />
+                {golfer.name}
+              </label>
+            ))}
+          </fieldset>
+        ))}
+        {message && (
+          <p className="form-error" role="alert">
+            {message}
+          </p>
+        )}
+        <footer className="lineup-actions">
+          <button
+            className="button button-primary"
+            type="submit"
+            disabled={!complete}
+          >
+            Submit Lineup
+          </button>
+          {contest.lineup.length > 0 && (
+            <button className="button" type="button" onClick={remove}>
+              Remove Lineup
+            </button>
+          )}
+        </footer>
+      </form>
     </main>
   );
 }
@@ -133,9 +234,8 @@ function ContestOwnerControls({
     if (response.ok) window.location.reload();
   }
   return (
-    <section aria-labelledby="participants-heading">
-      <p className="eyebrow">Contest access</p>
-      <h2 id="participants-heading">Invite Participants</h2>
+    <section aria-labelledby="contest-access-heading">
+      <h2 id="contest-access-heading">Invite Participants</h2>
       <form onSubmit={invite} className="auth-form">
         <label htmlFor="invite-email">Email address</label>
         <input
