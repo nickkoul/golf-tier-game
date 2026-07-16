@@ -76,7 +76,7 @@ describe('Contest creation', () => {
       body: JSON.stringify({
         tournamentId,
         tiers: [
-          { name: 'Favorites', golferIds: ['golfer-a'] },
+          { name: '', golferIds: ['golfer-a'] },
           { name: 'Contenders', golferIds: ['golfer-b'] },
         ],
       }),
@@ -88,7 +88,7 @@ describe('Contest creation', () => {
       lineupLockAt: expect.any(String),
       tournamentTimeZone: 'America/New_York',
       tiers: [
-        { name: 'Favorites', golfers: [{ id: 'golfer-a', name: 'Avery Ace' }] },
+        { name: 'Tier 1', golfers: [{ id: 'golfer-a', name: 'Avery Ace' }] },
         {
           name: 'Contenders',
           golfers: [{ id: 'golfer-b', name: 'Blair Birdie' }],

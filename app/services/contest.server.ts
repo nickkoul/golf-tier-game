@@ -60,19 +60,21 @@ function validTierBoard(value: unknown): TierInput[] | string {
   const tierNames = new Set<string>();
   const golferIds = new Set<string>();
   const tiers: TierInput[] = [];
-  for (const tier of value) {
-    if (!tier || typeof tier !== 'object') return 'Each Tier needs a name.';
+  for (let position = 0; position < value.length; position += 1) {
+    const tier = value[position];
+    if (!tier || typeof tier !== 'object')
+      return 'Each Tier needs valid Golfers.';
     const { name, golferIds: ids } = tier as {
       name?: unknown;
       golferIds?: unknown;
     };
-    const trimmedName = typeof name === 'string' ? name.trim() : '';
-    if (!trimmedName) return 'Each Tier needs a name.';
-    if (tierNames.has(trimmedName.toLocaleLowerCase()))
+    const tierName =
+      (typeof name === 'string' ? name.trim() : '') || `Tier ${position + 1}`;
+    if (tierNames.has(tierName.toLocaleLowerCase()))
       return 'Tier names must be unique.';
     if (!Array.isArray(ids) || ids.length === 0)
       return 'Each Tier needs at least one Golfer.';
-    tierNames.add(trimmedName.toLocaleLowerCase());
+    tierNames.add(tierName.toLocaleLowerCase());
     const tierGolferIds: string[] = [];
     for (const id of ids) {
       if (typeof id !== 'string' || !id)
@@ -81,7 +83,7 @@ function validTierBoard(value: unknown): TierInput[] | string {
       golferIds.add(id);
       tierGolferIds.push(id);
     }
-    tiers.push({ name: trimmedName, golferIds: tierGolferIds });
+    tiers.push({ name: tierName, golferIds: tierGolferIds });
   }
   return tiers;
 }

@@ -24,9 +24,12 @@ function boardErrors(tiers: BoardTier[]) {
   const golfers = new Set<string>();
   let duplicateNames = false;
   let duplicateGolfers = false;
-  for (const tier of tiers) {
-    const name = tier.name.trim().toLocaleLowerCase();
-    if (name && names.has(name)) duplicateNames = true;
+  for (let position = 0; position < tiers.length; position += 1) {
+    const tier = tiers[position];
+    const name = (
+      tier.name.trim() || `Tier ${position + 1}`
+    ).toLocaleLowerCase();
+    if (names.has(name)) duplicateNames = true;
     names.add(name);
     for (const golferId of tier.golferIds) {
       if (golfers.has(golferId)) duplicateGolfers = true;
@@ -39,7 +42,7 @@ function boardErrors(tiers: BoardTier[]) {
     duplicateGolfers,
     valid:
       tiers.length > 0 &&
-      tiers.every((tier) => tier.name.trim() && tier.golferIds.length > 0) &&
+      tiers.every((tier) => tier.golferIds.length > 0) &&
       !duplicateNames &&
       !duplicateGolfers,
   };
@@ -181,13 +184,13 @@ export default function NewContest() {
               <legend>Tier {index + 1}</legend>
               <div className="tier-controls">
                 <label>
-                  Tier name
+                  Tier name (optional)
                   <input
                     value={tier.name}
+                    placeholder={`Tier ${index + 1}`}
                     onChange={(event) =>
                       updateTier(tier.id, { name: event.target.value })
                     }
-                    required
                   />
                 </label>
                 <button

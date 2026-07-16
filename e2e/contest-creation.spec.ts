@@ -44,14 +44,13 @@ test('a Contest Owner creates an immutable Contest from a future Tournament fiel
     page.getByRole('button', { name: 'Create private Contest' }),
   ).toBeDisabled();
 
-  await page.getByLabel('Tier name').fill('Favorites');
   await page.getByLabel('Avery Ace').check();
   await page.getByRole('button', { name: 'Add Tier' }).click();
   const secondTier = page.getByRole('group', { name: 'Tier 2' });
   await expect(
     page.getByText('Every Tier needs at least one Golfer.'),
   ).toBeVisible();
-  await secondTier.getByLabel('Tier name').fill('Favorites');
+  await secondTier.getByLabel('Tier name (optional)').fill('Tier 1');
   await secondTier.getByLabel('Avery Ace').check();
   await expect(page.getByText('Tier names must be unique.')).toBeVisible();
   await expect(
@@ -67,6 +66,6 @@ test('a Contest Owner creates an immutable Contest from a future Tournament fiel
   await page.getByRole('button', { name: 'Create private Contest' }).click();
   await expect(page.getByRole('heading', { name })).toBeVisible();
   await expect(page.getByText('Your field is set.')).toBeVisible();
-  await expect(page.getByText('Favorites')).toBeVisible();
+  await expect(page.getByText('Tier 1')).toBeVisible();
   await expect(page.getByText('Contenders')).toBeVisible();
 });
