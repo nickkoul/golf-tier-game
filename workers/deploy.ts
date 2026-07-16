@@ -9,6 +9,7 @@ import {
   verifySignInLink,
 } from '../app/services/auth.server';
 import { createRequestHandler } from 'react-router';
+import { refreshActiveTournaments } from '../app/services/standings.server';
 
 const requestHandler = createRequestHandler(build, 'production');
 
@@ -68,6 +69,9 @@ export default {
     return requestHandler(request, {
       cloudflare: { env, ctx },
     });
+  },
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(refreshActiveTournaments(env.DB));
   },
 } satisfies ExportedHandler<
   Env & {

@@ -18,4 +18,5 @@
   "observability": {
     "enabled": true,
   },
+  "triggers": { "crons": ["* * * * *"] },
 }

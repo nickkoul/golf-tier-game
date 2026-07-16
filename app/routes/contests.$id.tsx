@@ -1,5 +1,5 @@
 import { redirect, useLoaderData } from 'react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { authenticatedUser } from '../services/auth.server';
 import { contestForUser, contestManagement } from '../services/contest.server';
 import type { Route } from './+types/contests.$id';
@@ -55,19 +55,21 @@ export default function ContestDetail() {
           {contest.tournamentTimeZone})
         </p>
       </header>
-      <section aria-labelledby="tier-board-heading">
-        <h2 id="tier-board-heading">Your field is set.</h2>
-        <ol className="tier-list">
-          {contest.tiers.map((tier) => (
-            <li key={tier.name}>
-              <strong>{tier.name}</strong>
-              <span>
-                {tier.golfers.map((golfer) => golfer.name).join(', ')}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {beforeLineupLock && (
+        <section aria-labelledby="tier-board-heading">
+          <h2 id="tier-board-heading">Your field is set.</h2>
+          <ol className="tier-list">
+            {contest.tiers.map((tier) => (
+              <li key={tier.name}>
+                <strong>{tier.name}</strong>
+                <span>
+                  {tier.golfers.map((golfer) => golfer.name).join(', ')}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       {beforeLineupLock && (
         <>
           <section aria-labelledby="participants-heading">
@@ -91,11 +93,74 @@ export default function ContestDetail() {
           </a>
         </>
       )}
+      {!beforeLineupLock && contest.standings && (
+        <Standings standings={contest.standings} />
+      )}
       {management && (
         <ContestOwnerControls contestId={contest.id} management={management} />
       )}
       {!contest.isOwner && <LeaveContest contestId={contest.id} />}
     </main>
+  );
+}
+
+function Standings({
+  standings,
+}: {
+  standings: NonNullable<
+    NonNullable<Awaited<ReturnType<typeof contestForUser>>>['standings']
+  >;
+}) {
+  useEffect(() => {
+    const interval = window.setInterval(() => window.location.reload(), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+  if (standings.status === 'cancelled')
+    return (
+      <section>
+        <h2>Contest Cancellation</h2>
+        <p>This Tournament ended without Final Standings.</p>
+      </section>
+    );
+  return (
+    <section aria-labelledby="standings-heading" className="standings-section">
+      <p className="eyebrow">
+        {standings.status === 'final'
+          ? 'Final Standings'
+          : 'Provisional Standings'}
+      </p>
+      <h2 id="standings-heading">Standings</h2>
+      <ol className="standings-table">
+        {standings.entrants.map((entrant) => (
+          <li
+            key={`${entrant.displayName}-${entrant.golfers.map((golfer) => golfer.name).join()}`}
+          >
+            <details>
+              <summary className="standings-row">
+                <strong>
+                  {entrant.position ? `${entrant.position}.` : '-'}
+                </strong>
+                <span>{entrant.displayName}</span>
+                <strong>
+                  {entrant.fantasyPoints ?? 'Scoring Unavailable'}
+                </strong>
+              </summary>
+              <ul>
+                {entrant.golfers.map((golfer) => (
+                  <li key={golfer.name}>
+                    <strong>{golfer.name}</strong>:{' '}
+                    {golfer.fantasyPoints ?? 'Scoring Unavailable'} pts,{' '}
+                    {golfer.position ?? '-'}, {golfer.scoreToPar ?? '-'}, Round{' '}
+                    {golfer.currentRound ?? '-'}, through{' '}
+                    {golfer.throughStatus ?? '-'}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 

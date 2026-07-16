@@ -9,6 +9,8 @@ type Tournament = {
 type TierInput = { name: string; golferIds: string[] };
 type LineupSelection = { tierId: string; golferId: string };
 
+import { standingsForContest, type Standings } from './standings.server';
+
 type Contest = {
   id: string;
   name: string;
@@ -218,6 +220,7 @@ export async function contestForUser(
       isOwner: boolean;
       lineup: LineupSelection[];
       participants: { displayName: string; entered: boolean }[];
+      standings: Standings | null;
     })
   | null
 > {
@@ -272,6 +275,10 @@ export async function contestForUser(
       displayName: participant.displayName || participant.email,
       entered: Boolean(participant.entered),
     })),
+    standings:
+      new Date(contest.lineupLockAt) <= new Date()
+        ? await standingsForContest(db, contestId)
+        : null,
   };
 }
 

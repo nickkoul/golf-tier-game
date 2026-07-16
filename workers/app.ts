@@ -20,6 +20,7 @@ import {
   revokeInvitation,
   submitLineup,
 } from '../app/services/contest.server';
+import { refreshActiveTournaments } from '../app/services/standings.server';
 import { createRequestHandler } from 'react-router';
 
 const requestHandler = createRequestHandler(
@@ -274,6 +275,9 @@ export default {
     return requestHandler(request, {
       cloudflare: { env, ctx },
     });
+  },
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(refreshActiveTournaments(env.DB));
   },
 } satisfies ExportedHandler<
   Env & {

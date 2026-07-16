@@ -186,3 +186,33 @@ test('a Participant sees pre-lock entered status without another Lineup selectio
   ).resolves.toMatchObject({ lineup: [] });
   await context.close();
 });
+
+test('a Participant expands provisional Standings after Lineup Lock', async ({
+  browser,
+}) => {
+  const contestId = randomUUID();
+  const ownerId = randomUUID();
+  const tournamentId = randomUUID();
+  const tierId = randomUUID();
+  const lineupId = randomUUID();
+  const token = randomUUID();
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const now = new Date().toISOString();
+  const lockedAt = new Date(Date.now() - 60_000).toISOString();
+  executeLocalSql(
+    `INSERT INTO users (id, email, display_name, created_at) VALUES ('${ownerId}', 'owner-${ownerId}@example.com', 'Standing Owner', '${now}'); INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES ('${tokenHash}', '${ownerId}', '${new Date(Date.now() + 86_400_000).toISOString()}', '${now}'); INSERT INTO tournaments (id, name, starts_at, time_zone, source) VALUES ('${tournamentId}', 'Live Invitational', '${lockedAt}', 'America/New_York', 'espn'); INSERT INTO contests (id, owner_user_id, tournament_id, name, lineup_lock_at, tournament_time_zone, created_at) VALUES ('${contestId}', '${ownerId}', '${tournamentId}', 'Live Invitational', '${lockedAt}', 'America/New_York', '${now}'); INSERT INTO tiers (id, contest_id, position, name) VALUES ('${tierId}', '${contestId}', 0, 'Tier 1'); INSERT INTO tier_golfers (tier_id, golfer_id, golfer_name) VALUES ('${tierId}', 'avery-${contestId}', 'Avery Ace'); INSERT INTO lineups (id, contest_id, user_id, created_at) VALUES ('${lineupId}', '${contestId}', '${ownerId}', '${now}'); INSERT INTO lineup_selections (lineup_id, tier_id, golfer_id) VALUES ('${lineupId}', '${tierId}', 'avery-${contestId}'); INSERT INTO tournament_refreshes (tournament_id, status, last_success_at, source_payload) VALUES ('${tournamentId}', 'active', '${now}', '{}'); INSERT INTO golfer_scores (tournament_id, golfer_id, golfer_name, fantasy_points, position, score_to_par, current_round, through_status, source_payload, refreshed_at) VALUES ('${tournamentId}', 'avery-${contestId}', 'Avery Ace', 12.5, 'T1', '-4', 2, '12', '{}', '${now}');`,
+  );
+  const context = await browser.newContext();
+  await context.addCookies([
+    { name: 'golf_tiers_session', value: token, url: 'http://127.0.0.1:4173' },
+  ]);
+  const page = await context.newPage();
+  await page.goto(`/contests/${contestId}`);
+
+  await expect(page.getByText('Provisional Standings')).toBeVisible();
+  await page.getByText('Standing Owner', { exact: true }).click();
+  await expect(
+    page.getByText('Avery Ace: 12.5 pts, T1, -4, Round 2, through 12'),
+  ).toBeVisible();
+  await context.close();
+});
