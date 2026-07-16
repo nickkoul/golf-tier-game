@@ -15,6 +15,10 @@ function executeLocalSql(command: string) {
 test('a Contest Owner creates an immutable Contest from a future Tournament field', async ({
   page,
 }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
   const tournamentId = randomUUID();
   const token = randomUUID();
   const email = `owner-${randomUUID()}@example.com`;
@@ -79,7 +83,8 @@ test('a Contest Owner creates an immutable Contest from a future Tournament fiel
   const contestId = page.url().split('/').pop()!;
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { name })).toBeVisible();
+  await expect(page.locator(`a[href="/contests/${contestId}"]`)).toBeVisible();
+  expect(consoleErrors.join('\n')).not.toContain('Hydration failed');
   await page.goto(`/contests/${contestId}`);
 
   await page.goto(`/contests/${contestId}?lineup=edit`);
